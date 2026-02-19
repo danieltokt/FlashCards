@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <h1>{{ title }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label>Название курса</label>
+        {{ form.title }}
+        <label>Описание</label>
+        {{ form.description }}
+        <label>Язык карточки (лицевая)</label>
+        {{ form.front_language }}
+        <label>Язык перевода (задняя)</label>
+        {{ form.back_language }}
+        <label>Папка</label>
+        {{ form.folder }}
+        <div class="form-actions">
+            <a href="{% url 'home' %}" class="btn-secondary">Отмена</a>
+            <button type="submit" class="btn-primary">Сохранить</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

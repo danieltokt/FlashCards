@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Магазин{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🛍️ Магазин</h1>
+</div>
+
+<div class="shop-stats">
+    <div class="shop-stat">
+        <div class="shop-stat-icon">🔥</div>
+        <div class="shop-stat-num">{{ profile.streak }}</div>
+        <div class="shop-stat-label">Дней подряд</div>
+    </div>
+    <div class="shop-stat">
+        <div class="shop-stat-icon">🪙</div>
+        <div class="shop-stat-num">{{ profile.coins }}</div>
+        <div class="shop-stat-label">Монет</div>
+    </div>
+    <div class="shop-stat">
+        <div class="shop-stat-icon">🧊</div>
+        <div class="shop-stat-num">{{ profile.freezes }}</div>
+        <div class="shop-stat-label">Заморозок</div>
+    </div>
+    <div class="shop-stat">
+        <div class="shop-stat-icon">🏆</div>
+        <div class="shop-stat-num">{{ profile.longest_streak }}</div>
+        <div class="shop-stat-label">Рекорд</div>
+    </div>
+</div>
+
+<h2 style="margin: 2rem 0 1rem">🧊 Заморозки</h2>
+<p style="color:#666;margin-bottom:1.5rem">Заморозка сохраняет огонёк если ты пропустил день</p>
+
+<div class="shop-grid">
+    {% for item in freeze_prices %}
+    <div class="shop-item">
+        <div class="shop-item-icon">🧊</div>
+        <div class="shop-item-title">{{ item.label }}</div>
+        <div class="shop-item-price">🪙 {{ item.price }} монет</div>
+        <button class="btn-primary" onclick="buyFreeze({{ item.amount }}, {{ item.price }}, this)">
+            Купить
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="earn-section">
+    <h2>💡 Как зарабатывать монеты</h2>
+    <div class="earn-grid">
+        <div class="earn-item">📝 Тест 50–69% <strong>+5 🪙</strong></div>
+        <div class="earn-item">📝 Тест 70–89% <strong>+10 🪙</strong></div>
+        <div class="earn-item">📝 Тест 90–100% <strong>+20 🪙</strong></div>
+        <div class="earn-item">🃏 Первый курс дня <strong>+3 🪙</strong></div>
+        <div class="earn-item">🔥 Стрик 7 дней <strong>+15 🪙</strong></div>
+        <div class="earn-item">🔥 Стрик 30 дней <strong>+50 🪙</strong></div>
+    </div>
+</div>
+
+<div id="shopToast" class="shop-toast" style="display:none"></div>
+
+<script>
+function buyFreeze(amount, price, btn) {
+    fetch('/shop/buy-freeze/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ amount })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            showToast(`✅ Куплено! Монет: ${data.coins} | Заморозок: ${data.freezes}`);
+            document.querySelectorAll('.nav-coins').forEach(el => el.textContent = '🪙 ' + data.coins);
+        } else {
+            showToast('❌ ' + data.message, true);
+        }
+    });
+}
+
+function showToast(msg, isError = false) {
+    const t = document.getElementById('shopToast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    t.style.background = isError ? '#fee2e2' : '#dcfce7';
+    t.style.color = isError ? '#dc2626' : '#16a34a';
+    setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function getCookie(name) {
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return v.pop().split(';').shift();
+}
+</script>
+{% endblock %}

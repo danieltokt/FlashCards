@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}{{ folder.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📁 {{ folder.title }}</h1>
+    <div class="header-actions">
+        <a href="{% url 'folder_delete' folder.pk %}" class="btn-danger">Удалить папку</a>
+    </div>
+</div>
+
+<div class="grid">
+    {% for course in courses %}
+    <a href="{% url 'course_detail' course.pk %}" class="card-item">
+        <div class="card-icon">📚</div>
+        <div class="card-title">{{ course.title }}</div>
+        <div class="card-meta">{{ course.cards_count }} карточек</div>
+    </a>
+    {% empty %}
+    <p>В папке пока нет курсов</p>
+    {% endfor %}
+</div>
+{% endblock %}

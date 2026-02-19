@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Профиль{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+
+    <!-- Шапка профиля -->
+    <div class="profile-hero">
+        <div class="profile-avatar">
+            {% if user.avatar %}
+            <img src="{{ user.avatar.url }}" alt="">
+            {% else %}
+            <div class="avatar-placeholder">{{ user.username|first|upper }}</div>
+            {% endif %}
+        </div>
+        <div class="profile-info">
+            <h1>{{ user.username }}</h1>
+            <p class="profile-email">{{ user.email }}</p>
+            <p class="profile-joined">На сайте с {{ user.date_joined|date:"d.m.Y" }}</p>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-icon">🔥</div>
+            <div class="stat-card-num">{{ profile.streak }}</div>
+            <div class="stat-card-label">Дней подряд</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">🏆</div>
+            <div class="stat-card-num">{{ profile.longest_streak }}</div>
+            <div class="stat-card-label">Рекорд</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">🪙</div>
+            <div class="stat-card-num">{{ profile.coins }}</div>
+            <div class="stat-card-label">Монет</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">🧊</div>
+            <div class="stat-card-num">{{ profile.freezes }}</div>
+            <div class="stat-card-label">Заморозок</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">📚</div>
+            <div class="stat-card-num">{{ courses_count }}</div>
+            <div class="stat-card-label">Курсов</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">📊</div>
+            <div class="stat-card-num">{{ avg_percent }}%</div>
+            <div class="stat-card-label">Средний балл</div>
+        </div>
+    </div>
+
+    <div class="profile-columns">
+
+        <!-- Последние тесты -->
+        <div class="profile-section">
+            <h2>📝 Последние тесты</h2>
+            {% if test_results %}
+            <div class="test-history">
+                {% for result in test_results %}
+                <div class="test-history-row">
+                    <div class="test-history-info">
+                        <span class="test-history-course">{{ result.course.title }}</span>
+                        <span class="test-history-date">{{ result.created_at|date:"d.m H:i" }}</span>
+                    </div>
+                    <div class="test-history-score
+                        {% if result.percent >= 90 %}score-great
+                        {% elif result.percent >= 70 %}score-good
+                        {% elif result.percent >= 50 %}score-ok
+                        {% else %}score-bad{% endif %}">
+                        {{ result.percent }}%
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-hint">Тестов пока нет</p>
+            {% endif %}
+        </div>
+
+        <!-- Настройки -->
+        <div class="profile-section">
+            <h2>⚙️ Настройки</h2>
+            <form method="post">
+                {% csrf_token %}
+                <label>Язык интерфейса</label>
+                <select name="interface_language" class="form-input">
+                    <option value="ru" {% if fresh_user.interface_language == 'ru' %}selected{% endif %}>🇷🇺 Русский
+                    </option>
+                    <option value="en" {% if fresh_user.interface_language == 'en' %}selected{% endif %}>🇬🇧 English
+                    </option>
+                    <option value="de" {% if fresh_user.interface_language == 'de' %}selected{% endif %}>🇩🇪 Deutsch
+                    </option>
+                    <option value="fr" {% if fresh_user.interface_language == 'fr' %}selected{% endif %}>🇫🇷 Français
+                    </option>
+                    <option value="es" {% if fresh_user.interface_language == 'es' %}selected{% endif %}>🇪🇸 Español
+                    </option>
+                    <option value="kk" {% if fresh_user.interface_language == 'kk' %}selected{% endif %}>🇰🇿 Қазақша
+                    </option>
+                    <option value="ky" {% if fresh_user.interface_language == 'ky' %}selected{% endif %}>🏔️ Кыргызча
+                    </option>
+                </select>
+                <button type="submit" class="btn-primary" style="margin-top:1rem">Сохранить</button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- История монет -->
+    {% if transactions %}
+    <div class="profile-section" style="margin-top:1.5rem">
+        <h2>🪙 История монет</h2>
+        <div class="coin-history">
+            {% for t in transactions %}
+            <div class="coin-row">
+                <span class="coin-reason">
+                    {% if t.reason == 'test' %}📝 Тест
+                    {% elif t.reason == 'streak_7' %}🔥 Стрик 7 дней
+                    {% elif t.reason == 'streak_30' %}🔥 Стрик 30 дней
+                    {% elif t.reason == 'daily' %}🃏 Активность
+                    {% elif t.reason == 'purchase' %}🛍️ Покупка
+                    {% endif %}
+                </span>
+                <span class="coin-date">{{ t.created_at|date:"d.m H:i" }}</span>
+                <span class="coin-amount {% if t.amount > 0 %}coin-plus{% else %}coin-minus{% endif %}">
+                    {% if t.amount > 0 %}+{% endif %}{{ t.amount }} 🪙
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

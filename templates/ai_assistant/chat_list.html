@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}AI Ассистент{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🤖 AI Ассистент</h1>
+    <a href="{% url 'ai_chat_create' %}" class="btn-primary">+ Новый чат</a>
+</div>
+
+{% if chats %}
+<div class="chat-list-grid">
+    {% for chat in chats %}
+    <a href="{% url 'ai_chat' chat.pk %}" class="chat-list-item">
+        <div class="chat-list-icon">💬</div>
+        <div class="chat-list-info">
+            <div class="chat-list-title">{{ chat.title }}</div>
+            <div class="chat-list-meta">
+                {{ chat.messages.count }} сообщений · {{ chat.updated_at|date:"d.m H:i" }}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p style="font-size:3rem">🤖</p>
+    <p>Нет чатов. Создай первый!</p>
+    <a href="{% url 'ai_chat_create' %}" class="btn-primary" style="margin-top:1rem;display:inline-block">
+        Создать чат
+    </a>
+</div>
+{% endif %}
+{% endblock %}

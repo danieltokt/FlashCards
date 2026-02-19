@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}Тест — {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="test-wrapper">
+
+    <div class="test-header">
+        <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">✕</a>
+        <div class="study-progress-bar">
+            <div class="study-progress-fill" id="progressFill"></div>
+        </div>
+        <span class="study-counter" id="counter">1 / {{ total }}</span>
+    </div>
+
+    <div class="test-body" id="testBody"></div>
+
+</div>
+
+<!-- Экран результатов теста -->
+<div class="results-screen" id="resultsScreen" style="display:none">
+    <div class="results-card">
+        <div class="results-emoji" id="resEmoji"></div>
+        <h2>Тест завершён!</h2>
+        <div class="results-stats">
+            <div class="stat correct-stat">
+                <div class="stat-num" id="resCorrect"></div>
+                <div class="stat-label">Правильно</div>
+            </div>
+            <div class="stat wrong-stat">
+                <div class="stat-num" id="resWrong"></div>
+                <div class="stat-label">Ошибок</div>
+            </div>
+        </div>
+        <div class="results-percent" id="resPercent"></div>
+        <div class="coins-earned" id="coinsEarned" style="display:none">
+            <span>🪙</span> <span id="coinsNum"></span> монет заработано!
+        </div>
+
+        <!-- Разбор ошибок -->
+        <div id="mistakesList" style="margin:1rem 0;text-align:left"></div>
+
+        <div class="results-actions" style="margin-top:1rem">
+            <a href="{% url 'test' course.pk %}" class="btn-secondary">🔁 Ещё раз</a>
+            <a href="{% url 'study' course.pk %}" class="btn-secondary">🃏 Карточки</a>
+            <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">🚪 Выйти</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const QUESTIONS = {{ questions_json|safe }};
+const COURSE_PK = {{ course.pk }};
+let current = 0;
+let correct = 0;
+let mistakes = [];
+
+// ===== Рендер вопроса =====
+function renderQuestion() {
+    if (current >= QUESTIONS.length) {
+        finishTest();
+        return;
+    }
+
+    const q = QUESTIONS[current];
+    const body = document.getElementById('testBody');
+
+    // Прогресс
+    document.getElementById('progressFill').style.width = (current / QUESTIONS.length * 100) + '%';
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + QUESTIONS.length;
+
+    let html = `<div class="question-card">
+        <div class="q-type-label">${getTypeLabel(q.type)}</div>
+        <div class="q-text">${q.question}</div>`;
+
+    if (q.type === 'choice') {
+        html += `<div class="options-grid">`;
+        q.options.forEach((opt, i) => {
+            html += `<button class="option-btn" onclick="checkChoice(this, '${escHtml(opt)}', '${escHtml(q.answer)}', ${current})">${opt}</button>`;
+        });
+        html += `</div>`;
+
+    } else if (q.type === 'write') {
+        html += `<div class="write-wrap">
+            <input type="text" class="write-input" id="writeInput" placeholder="Введи перевод..."
+                autocomplete="off" autocorrect="off" spellcheck="false">
+            <button class="btn-primary" onclick="checkWrite('${escHtml(q.answer)}', ${current})">Проверить</button>
+        </div>`;
+
+    } else if (q.type === 'truefalse') {
+        html += `<div class="tf-buttons">
+            <button class="tf-btn true-btn" onclick="checkTF(this, 'true', '${q.answer}', ${current})">✓ Верно</button>
+            <button class="tf-btn false-btn" onclick="checkTF(this, 'false', '${q.answer}', ${current})">✗ Неверно</button>
+        </div>`;
+
+    } else if (q.type === 'match') {
+        html += renderMatch(q);
+    }
+
+    html += `</div>`;
+    body.innerHTML = html;
+
+    // Фокус на поле ввода
+    if (q.type === 'write') {
+        setTimeout(() => document.getElementById('writeInput')?.focus(), 100);
+        document.getElementById('writeInput')?.addEventListener('keydown', e => {
+            if (e.key === 'Enter') checkWrite(q.answer, current);
+        });
+    }
+}
+
+function getTypeLabel(type) {
+    return { choice: '🔤 Выбери правильный перевод', write: '✍️ Напиши перевод',
+             truefalse: '✅ Верно или нет?', match: '🔗 Сопоставь пары' }[type] || '';
+}
+
+function escHtml(str) {
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ===== Проверка choice =====
+function checkChoice(btn, selected, answer, idx) {
+    const allBtns = document.querySelectorAll('.option-btn');
+    allBtns.forEach(b => b.disabled = true);
+
+    const isCorrect = selected.toLowerCase().trim() === answer.toLowerCase().trim();
+
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+
+    if (!isCorrect) {
+        allBtns.forEach(b => {
+            if (b.textContent.toLowerCase().trim() === answer.toLowerCase().trim()) {
+                b.classList.add('correct');
+            }
+        });
+        mistakes.push({ word: QUESTIONS[idx].word, correct_answer: answer, your_answer: selected });
+    } else {
+        correct++;
+    }
+
+    setTimeout(() => { current++; renderQuestion(); }, 900);
+}
+
+// ===== Проверка write =====
+function checkWrite(answer, idx) {
+    const input = document.getElementById('writeInput');
+    const val = input.value.toLowerCase().trim();
+    const ans = answer.toLowerCase().trim();
+
+    // Принимаем если совпадает или отличается на 1 символ (опечатка)
+    const isCorrect = val === ans || levenshtein(val, ans) <= 1;
+
+    input.disabled = true;
+    input.classList.add(isCorrect ? 'input-correct' : 'input-wrong');
+
+    if (!isCorrect) {
+        const hint = document.createElement('div');
+        hint.className = 'write-hint';
+        hint.textContent = `Правильно: ${answer}`;
+        input.parentNode.appendChild(hint);
+        mistakes.push({ word: QUESTIONS[idx].word, correct_answer: answer, your_answer: val });
+    } else {
+        correct++;
+    }
+
+    setTimeout(() => { current++; renderQuestion(); }, 1000);
+}
+
+function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m+1 }, (_, i) => Array.from({ length: n+1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+    for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    return dp[m][n];
+}
+
+// ===== Проверка truefalse =====
+function checkTF(btn, selected, answer, idx) {
+    document.querySelectorAll('.tf-btn').forEach(b => b.disabled = true);
+    const isCorrect = selected === answer;
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+
+    if (!isCorrect) {
+        mistakes.push({ word: QUESTIONS[idx].word, correct_answer: answer === 'true' ? 'Верно' : 'Неверно', your_answer: selected === 'true' ? 'Верно' : 'Неверно' });
+    } else {
+        correct++;
+    }
+
+    setTimeout(() => { current++; renderQuestion(); }, 900);
+}
+
+// ===== Match =====
+let matchSelected = null;
+let matchDone = {};
+
+function renderMatch(q) {
+    let html = `<div class="match-wrap">
+        <div class="match-col" id="matchLeft">`;
+    q.left.forEach((word, i) => {
+        html += `<button class="match-btn left-btn" data-word="${escHtml(word)}" onclick="selectMatch(this,'left')">${word}</button>`;
+    });
+    html += `</div><div class="match-col" id="matchRight">`;
+    q.right.forEach((trans, i) => {
+        html += `<button class="match-btn right-btn" data-word="${escHtml(trans)}" onclick="selectMatch(this,'right')">${trans}</button>`;
+    });
+    html += `</div></div>
+    <div id="matchProgress" style="text-align:center;color:#888;margin-top:0.5rem">Выбери слово, затем перевод</div>`;
+    return html;
+}
+
+function selectMatch(btn, side) {
+    if (btn.disabled) return;
+    const q = QUESTIONS[current];
+
+    if (!matchSelected) {
+        if (side !== 'left') return;
+        matchSelected = btn;
+        btn.classList.add('selected');
+    } else {
+        if (side !== 'right') {
+            matchSelected.classList.remove('selected');
+            matchSelected = btn;
+            btn.classList.add('selected');
+            return;
+        }
+
+        const word = matchSelected.dataset.word;
+        const translation = btn.dataset.word;
+        const isCorrect = q.pairs[word] === translation;
+
+        matchSelected.disabled = true;
+        btn.disabled = true;
+        matchSelected.classList.remove('selected');
+        matchSelected.classList.add(isCorrect ? 'correct' : 'wrong');
+        btn.classList.add(isCorrect ? 'correct' : 'wrong');
+
+        if (!isCorrect) {
+            mistakes.push({ word, correct_answer: q.pairs[word], your_answer: translation });
+        }
+
+        matchDone[word] = isCorrect;
+        matchSelected = null;
+
+        // Проверяем завершение match
+        if (Object.keys(matchDone).length === q.left.length) {
+            const allCorrect = Object.values(matchDone).every(v => v);
+            if (allCorrect) correct++;
+            matchDone = {};
+            setTimeout(() => { current++; renderQuestion(); }, 1000);
+        }
+    }
+}
+
+// ===== Финиш =====
+function finishTest() {
+    const total = QUESTIONS.length;
+    const percent = Math.round((correct / total) * 100);
+
+    fetch(`/test/${COURSE_PK}/submit/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ correct, total })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('resCorrect').textContent = correct;
+        document.getElementById('resWrong').textContent = total - correct;
+        document.getElementById('resPercent').textContent = percent + '% правильно';
+
+        let emoji = '😔';
+        if (percent >= 90) emoji = '🏆';
+        else if (percent >= 70) emoji = '🎉';
+        else if (percent >= 50) emoji = '💪';
+        document.getElementById('resEmoji').textContent = emoji;
+
+        if (data.coins_earned > 0) {
+            document.getElementById('coinsEarned').style.display = 'block';
+            document.getElementById('coinsNum').textContent = data.coins_earned;
+        }
+
+        // Разбор ошибок
+        if (mistakes.length > 0) {
+            let mHtml = '<h3 style="margin-bottom:0.75rem">Ошибки:</h3>';
+            mistakes.forEach(m => {
+                mHtml += `<div class="mistake-row">
+                    <span class="mistake-word">${m.word}</span>
+                    <span class="mistake-your">Ты: ${m.your_answer}</span>
+                    <span class="mistake-correct">✓ ${m.correct_answer}</span>
+                </div>`;
+            });
+            document.getElementById('mistakesList').innerHTML = mHtml;
+        }
+
+        document.querySelector('.test-wrapper').style.display = 'none';
+        document.getElementById('resultsScreen').style.display = 'flex';
+    });
+}
+
+function getCookie(name) {
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return v.pop().split(';').shift();
+}
+
+renderQuestion();
+</script>
+{% endblock %}

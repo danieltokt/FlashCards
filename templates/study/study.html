@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }} — Учить{% endblock %}
+
+{% block content %}
+<div class="study-wrapper">
+
+    <!-- Шапка -->
+    <div class="study-header">
+        <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">✕</a>
+        <div class="study-progress-bar">
+            <div class="study-progress-fill" id="progressFill"></div>
+        </div>
+        <span class="study-counter" id="counter">1 / {{ total }}</span>
+    </div>
+
+    <!-- Опции -->
+    <div class="study-options">
+        <a href="?shuffle=true{% if favorites_only %}&favorites=true{% endif %}"
+           class="option-chip {% if shuffle %}active{% endif %}">🔀 Перемешать</a>
+        <a href="?{% if shuffle %}shuffle=true&{% endif %}favorites={% if favorites_only %}false{% else %}true{% endif %}"
+           class="option-chip {% if favorites_only %}active{% endif %}">⭐ Избранные</a>
+    </div>
+
+    <!-- Карточка -->
+    <div class="card-scene" id="cardScene">
+        <div class="card-flipper" id="cardFlipper" onclick="flipCard()">
+            <div class="card-face card-front">
+                <div class="card-lang" id="frontLang">{{ course.front_language|upper }}</div>
+                <div class="card-word" id="frontWord"></div>
+                <div class="card-image-wrap" id="cardImageWrap"></div>
+                <div class="card-hint">Нажми чтобы перевернуть</div>
+            </div>
+            <div class="card-face card-back">
+                <div class="card-lang" id="backLang">{{ course.back_language|upper }}</div>
+                <div class="card-word" id="backWord"></div>
+                <div class="card-hint">Знаешь? → / Не знаешь ←</div>
+            </div>
+        </div>
+
+        <!-- Свайп-индикаторы -->
+        <div class="swipe-indicator know" id="indKnow">✓ Знаю</div>
+        <div class="swipe-indicator dontknow" id="indDontKnow">✗ Не знаю</div>
+    </div>
+
+    <!-- Кнопки -->
+    <div class="study-actions">
+        <button class="action-btn wrong" onclick="swipeCard('left')" title="Не знаю">
+            <span>✕</span>
+            <small>Не знаю</small>
+        </button>
+        <button class="sound-btn" onclick="speakCurrent()" title="Озвучить">🔊</button>
+        <button class="action-btn correct" onclick="swipeCard('right')" title="Знаю">
+            <span>✓</span>
+            <small>Знаю</small>
+        </button>
+    </div>
+
+</div>
+
+<!-- Экран результатов -->
+<div class="results-screen" id="resultsScreen" style="display:none">
+    <div class="results-card">
+        <div class="results-emoji" id="resultsEmoji"></div>
+        <h2>Готово!</h2>
+        <div class="results-stats">
+            <div class="stat correct-stat">
+                <div class="stat-num" id="correctNum"></div>
+                <div class="stat-label">Знал</div>
+            </div>
+            <div class="stat wrong-stat">
+                <div class="stat-num" id="wrongNum"></div>
+                <div class="stat-label">Не знал</div>
+            </div>
+        </div>
+        <div class="results-percent" id="resultsPercent"></div>
+        <div class="results-actions">
+            <button onclick="restartAll()" class="btn-secondary">🔁 Заново</button>
+            <button onclick="restartWrong()" class="btn-secondary" id="btnWrong">❌ Ошибки</button>
+            <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">🚪 Выйти</a>
+        </div>
+        <div style="margin-top:1rem">
+            <a href="#" onclick="goToTest()" class="btn-primary" style="display:inline-block;width:100%;text-align:center">
+                📝 Пройти тест
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+const CARDS = {{ cards_json|safe }};
+const COURSE_PK = {{ course.pk }};
+const FRONT_LANG = '{{ course.front_language }}';
+
+let currentIndex = 0;
+let isFlipped = false;
+let correctIds = [];
+let wrongIds = [];
+let activeCards = [...CARDS];
+
+// Touch/swipe поддержка
+let touchStartX = 0;
+let touchStartY = 0;
+
+// ===== Инициализация =====
+function init() {
+    showCard(0);
+}
+
+function showCard(index) {
+    if (index >= activeCards.length) {
+        showResults();
+        return;
+    }
+    const card = activeCards[index];
+    isFlipped = false;
+
+    const flipper = document.getElementById('cardFlipper');
+    flipper.classList.remove('flipped', 'swipe-right', 'swipe-left');
+
+    document.getElementById('frontWord').textContent = card.front;
+    document.getElementById('backWord').textContent = card.back;
+
+    const imgWrap = document.getElementById('cardImageWrap');
+    if (card.image) {
+        imgWrap.innerHTML = `<img src="${card.image}" class="card-img">`;
+    } else {
+        imgWrap.innerHTML = '';
+    }
+
+    updateProgress(index, activeCards.length);
+    document.getElementById('indKnow').style.opacity = '0';
+    document.getElementById('indDontKnow').style.opacity = '0';
+}
+
+function updateProgress(index, total) {
+    const pct = (index / total) * 100;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('counter').textContent = (index + 1) + ' / ' + total;
+}
+
+// ===== Перевернуть =====
+function flipCard() {
+    isFlipped = !isFlipped;
+    document.getElementById('cardFlipper').classList.toggle('flipped', isFlipped);
+}
+
+// ===== Свайп =====
+function swipeCard(direction) {
+    if (!isFlipped) {
+        flipCard();
+        setTimeout(() => doSwipe(direction), 400);
+    } else {
+        doSwipe(direction);
+    }
+}
+
+function doSwipe(direction) {
+    const flipper = document.getElementById('cardFlipper');
+    const card = activeCards[currentIndex];
+
+    if (direction === 'right') {
+        flipper.classList.add('swipe-right');
+        correctIds.push(card.id);
+        document.getElementById('indKnow').style.opacity = '1';
+    } else {
+        flipper.classList.add('swipe-left');
+        wrongIds.push(card.id);
+        document.getElementById('indDontKnow').style.opacity = '1';
+    }
+
+    setTimeout(() => {
+        currentIndex++;
+        showCard(currentIndex);
+    }, 400);
+}
+
+// ===== Touch events =====
+const scene = document.getElementById('cardScene');
+
+scene.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+scene.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        swipeCard(dx > 0 ? 'right' : 'left');
+    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        flipCard();
+    }
+}, { passive: true });
+
+// ===== Клавиатура =====
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') swipeCard('right');
+    if (e.key === 'ArrowLeft') swipeCard('left');
+    if (e.key === ' ') { e.preventDefault(); flipCard(); }
+});
+
+// ===== Озвучка =====
+function speakCurrent() {
+    const card = activeCards[currentIndex];
+    const text = isFlipped ? card.back : card.front;
+    const lang = isFlipped ? '{{ course.back_language }}' : FRONT_LANG;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = lang + '-' + lang.toUpperCase();
+    speechSynthesis.speak(utter);
+}
+
+// ===== Результаты =====
+function showResults() {
+    const total = activeCards.length;
+    const correct = correctIds.length;
+    const wrong = wrongIds.length;
+    const pct = Math.round((correct / total) * 100);
+
+    document.getElementById('correctNum').textContent = correct;
+    document.getElementById('wrongNum').textContent = wrong;
+    document.getElementById('resultsPercent').textContent = pct + '% правильно';
+
+    let emoji = '😔';
+    if (pct >= 90) emoji = '🏆';
+    else if (pct >= 70) emoji = '🎉';
+    else if (pct >= 50) emoji = '💪';
+    document.getElementById('resultsEmoji').textContent = emoji;
+
+    if (wrong === 0) {
+        document.getElementById('btnWrong').style.display = 'none';
+    }
+
+    document.querySelector('.study-wrapper').style.display = 'none';
+    document.getElementById('resultsScreen').style.display = 'flex';
+
+    // Сохранить результат
+    fetch(`/study/${COURSE_PK}/results/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ correct, total, wrong_ids: wrongIds })
+    });
+}
+
+function restartAll() {
+    activeCards = [...CARDS];
+    currentIndex = 0;
+    correctIds = [];
+    wrongIds = [];
+    document.querySelector('.study-wrapper').style.display = 'flex';
+    document.getElementById('resultsScreen').style.display = 'none';
+    showCard(0);
+}
+
+function restartWrong() {
+    activeCards = CARDS.filter(c => wrongIds.includes(c.id));
+    currentIndex = 0;
+    correctIds = [];
+    wrongIds = [];
+    document.querySelector('.study-wrapper').style.display = 'flex';
+    document.getElementById('resultsScreen').style.display = 'none';
+    showCard(0);
+}
+
+function goToTest() {
+    window.location.href = `/test/${COURSE_PK}/`;
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+init();
+</script>
+{% endblock %}

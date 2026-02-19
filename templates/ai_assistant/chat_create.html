@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Новый чат{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <h1>💬 Новый чат</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label>Название чата</label>
+        <input type="text" name="title" class="form-input"
+               placeholder="Например: Грамматика английского" autofocus>
+        <div class="form-actions">
+            <a href="{% url 'ai_chat_list' %}" class="btn-secondary">Отмена</a>
+            <button type="submit" class="btn-primary">Создать</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

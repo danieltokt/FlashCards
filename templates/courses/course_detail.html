@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ course.title }}</h1>
+        <p class="subtitle">{{ course.front_language|upper }} → {{ course.back_language|upper }} · {{ cards.count }}
+            карточек</p>
+    </div>
+    <div class="header-actions">
+        <button onclick="toggleShare({{ course.pk }}, this)" class="btn-secondary share-btn"
+            data-public="{{ course.is_public|lower }}">
+            {% if course.is_public %}🔗 Ссылка активна{% else %}🔗 Поделиться{% endif %}
+        </button>
+        <a href="{% url 'course_edit' course.pk %}" class="btn-secondary">✏️ Редактировать</a>
+        <a href="{% url 'study' course.pk %}" class="btn-primary">▶ Учить</a>
+    </div>
+
+    {% if course.is_public %}
+    <div class="share-link-box" id="shareLinkBox">
+        <span>🔗 Ссылка для друзей:</span>
+        <input type="text"
+            value="{{ request.scheme }}://{{ request.get_host }}/courses/shared/{{ course.share_token }}/" readonly
+            id="shareUrl" class="share-url-input">
+        <button onclick="copyLink()" class="btn-secondary">Копировать</button>
+    </div>
+    {% else %}
+    <div class="share-link-box" id="shareLinkBox" style="display:none"></div>
+    {% endif %}
+</div>
+
+<div class="cards-list">
+    {% for card in cards %}
+    <div class="card-row">
+        <span class="card-num">{{ forloop.counter }}</span>
+        <div class="card-texts">
+            <span class="front">{{ card.front_text }}</span>
+            <span class="arrow-small">→</span>
+            <span class="back">{{ card.back_text }}</span>
+        </div>
+        {% if card.image %}<img src="{{ card.image.url }}" class="card-thumb">{% endif %}
+        {% if card.is_favorite %}<span class="fav-star active">★</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+<script>
+function toggleShare(pk, btn) {
+    fetch(`/courses/${pk}/share/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.textContent = data.is_public ? '🔗 Ссылка активна' : '🔗 Поделиться';
+        const box = document.getElementById('shareLinkBox');
+        if (data.is_public) {
+            box.style.display = 'flex';
+            box.innerHTML = `
+                <span>🔗 Ссылка для друзей:</span>
+                <input type="text" value="${data.share_url}" readonly id="shareUrl" class="share-url-input">
+                <button onclick="copyLink()" class="btn-secondary">Копировать</button>`;
+        } else {
+            box.style.display = 'none';
+        }
+    });
+}
+
+function copyLink() {
+    const input = document.getElementById('shareUrl');
+    input.select();
+    navigator.clipboard.writeText(input.value)
+        .then(() => alert('Ссылка скопирована!'));
+}
+
+function getCookie(name) {
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return v.pop().split(';').shift();
+}
+</script>
