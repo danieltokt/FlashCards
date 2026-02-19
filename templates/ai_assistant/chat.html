@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}{{ chat.title }}{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+
+    <!-- Сайдбар со списком чатов -->
+    <div class="chat-sidebar">
+        <a href="{% url 'ai_chat_create' %}" class="btn-primary" style="display:block;text-align:center;margin-bottom:1rem">
+            + Новый чат
+        </a>
+        <div class="sidebar-chats">
+            {% for c in chats %}
+            <a href="{% url 'ai_chat' c.pk %}"
+               class="sidebar-chat-item {% if c.pk == chat.pk %}active{% endif %}">
+                <div class="sidebar-chat-title">{{ c.title }}</div>
+                <div class="sidebar-chat-meta">{{ c.updated_at|date:"d.m" }}</div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Основной чат -->
+    <div class="chat-main">
+
+        <div class="chat-header">
+            <div class="chat-title-wrap">
+                <h2 id="chatTitle">{{ chat.title }}</h2>
+                <button onclick="renameChat()" class="icon-btn" title="Переименовать">✏️</button>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <form method="post" action="{% url 'ai_chat_delete' chat.pk %}"
+                      onsubmit="return confirm('Удалить чат?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Быстрые подсказки -->
+        <div class="quick-prompts">
+            <button class="prompt-chip" onclick="setPrompt('Объясни разницу между Present Simple и Present Continuous')">Present Simple vs Continuous</button>
+            <button class="prompt-chip" onclick="setPrompt('Проверь мой текст на ошибки: ')">✏️ Проверить текст</button>
+            <button class="prompt-chip" onclick="setPrompt('Придумай 5 примеров со словом ')">📝 Примеры с словом</button>
+            <button class="prompt-chip" onclick="setPrompt('Как правильно использовать артикли в английском?')">Артикли</button>
+        </div>
+
+        <!-- Сообщения -->
+        <div class="chat-messages" id="chatMessages">
+            {% if not messages %}
+            <div class="chat-empty">
+                <div style="font-size:3rem">🤖</div>
+                <p>Начни диалог! Спроси о грамматике или попроси проверить текст.</p>
+            </div>
+            {% endif %}
+            {% for msg in messages %}
+            <div class="chat-msg {% if msg.role == 'user' %}msg-user{% else %}msg-bot{% endif %}">
+                <div class="msg-avatar">{% if msg.role == 'user' %}👤{% else %}🤖{% endif %}</div>
+                <div class="msg-bubble">
+                    <div class="msg-text">{{ msg.content|linebreaksbr }}</div>
+                    <div class="msg-time">{{ msg.created_at|date:"H:i" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="chat-msg msg-bot" id="typingIndicator" style="display:none">
+                <div class="msg-avatar">🤖</div>
+                <div class="msg-bubble">
+                    <div class="typing-dots"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Поле ввода -->
+        <div class="chat-input-wrap">
+            <textarea id="chatInput" class="chat-input"
+                placeholder="Спроси что-нибудь..." rows="1"
+                onInput="autoResize(this)"></textarea>
+            <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+        </div>
+        <div class="chat-hint">Ctrl+Enter — отправить</div>
+    </div>
+</div>
+
+<script>
+const CHAT_PK = {{ chat.pk }};
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    appendMessage('user', text);
+    input.value = '';
+    autoResize(input);
+    document.getElementById('typingIndicator').style.display = 'flex';
+    document.getElementById('sendBtn').disabled = true;
+    scrollToBottom();
+
+    fetch(`/ai/${CHAT_PK}/send/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ message: text })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('typingIndicator').style.display = 'none';
+        document.getElementById('sendBtn').disabled = false;
+        if (data.status === 'ok') {
+            appendMessage('assistant', data.reply);
+        } else {
+            const msg = data.message === 'RATE_LIMIT'
+                ? '⏳ Превышен лимит (15 запросов/мин). Подожди и отправь снова.'
+                : '❌ Ошибка: ' + (data.message || 'Попробуй ещё раз');
+            appendMessage('assistant', msg);
+        }
+        scrollToBottom();
+    });
+}
+
+function appendMessage(role, text) {
+    const container = document.getElementById('chatMessages');
+    const empty = container.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role === 'user' ? 'msg-user' : 'msg-bot'}`;
+    div.innerHTML = `
+        <div class="msg-avatar">${role === 'user' ? '👤' : '🤖'}</div>
+        <div class="msg-bubble">
+            <div class="msg-text">${formatText(text)}</div>
+            <div class="msg-time">${time}</div>
+        </div>`;
+    container.insertBefore(div, document.getElementById('typingIndicator'));
+}
+
+function formatText(text) {
+    return text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g,'<em>$1</em>')
+        .replace(/`(.*?)`/g,'<code>$1</code>')
+        .replace(/\n/g,'<br>');
+}
+
+function renameChat() {
+    const current = document.getElementById('chatTitle').textContent;
+    const newTitle = prompt('Новое название:', current);
+    if (!newTitle || newTitle.trim() === current) return;
+
+    fetch(`/ai/${CHAT_PK}/rename/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ title: newTitle.trim() })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            document.getElementById('chatTitle').textContent = data.title;
+            // Обновляем в сайдбаре
+            document.querySelectorAll('.sidebar-chat-item.active .sidebar-chat-title')
+                .forEach(el => el.textContent = data.title);
+        }
+    });
+}
+
+function clearChat() {
+    if (!confirm('Очистить историю этого чата?')) return;
+    fetch(`/ai/${CHAT_PK}/clear/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    }).then(() => {
+        document.getElementById('chatMessages').innerHTML = `
+            <div class="chat-empty">
+                <div style="font-size:3rem">🤖</div>
+                <p>История очищена.</p>
+            </div>`;
+    });
+}
+
+function setPrompt(text) {
+    const input = document.getElementById('chatInput');
+    input.value = text;
+    input.focus();
+    autoResize(input);
+    input.setSelectionRange(text.length, text.length);
+}
+
+function scrollToBottom() {
+    const c = document.getElementById('chatMessages');
+    c.scrollTop = c.scrollHeight;
+}
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendMessage(); }
+});
+
+function getCookie(name) {
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return v.pop().split(';').shift();
+}
+
+scrollToBottom();
+</script>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% block title %}Главная — FlashCards{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+    <!-- Приветствие + стрик -->
+    <div class="dash-hero">
+        <div class="dash-greeting">
+            <h1>Привет, {{ user.username }}! 👋</h1>
+            <p class="dash-subtitle">
+                {% if profile.streak > 0 %}
+                    Ты учишься {{ profile.streak }} {{ profile.streak|pluralize:"день,дня,дней" }} подряд. Так держать!
+                {% else %}
+                    Начни учиться сегодня и зажги свой огонёк!
+                {% endif %}
+            </p>
+        </div>
+        <div class="dash-streak-badge">
+            <div class="streak-fire">🔥</div>
+            <div class="streak-num">{{ profile.streak }}</div>
+            <div class="streak-label">дней</div>
+        </div>
+    </div>
+
+    <!-- Быстрая статистика -->
+    <div class="dash-stats">
+        <div class="dash-stat">
+            <div class="dash-stat-icon">🪙</div>
+            <div class="dash-stat-val">{{ profile.coins }}</div>
+            <div class="dash-stat-key">Монет</div>
+        </div>
+        <div class="dash-stat">
+            <div class="dash-stat-icon">🧊</div>
+            <div class="dash-stat-val">{{ profile.freezes }}</div>
+            <div class="dash-stat-key">Заморозок</div>
+        </div>
+        <div class="dash-stat">
+            <div class="dash-stat-icon">📚</div>
+            <div class="dash-stat-val">{{ courses.count }}</div>
+            <div class="dash-stat-key">Курсов</div>
+        </div>
+        <div class="dash-stat">
+            <div class="dash-stat-icon">🃏</div>
+            <div class="dash-stat-val">{{ total_cards }}</div>
+            <div class="dash-stat-key">Карточек</div>
+        </div>
+        <div class="dash-stat">
+            <div class="dash-stat-icon">📝</div>
+            <div class="dash-stat-val">{{ total_tests }}</div>
+            <div class="dash-stat-key">Тестов</div>
+        </div>
+        {% if last_test %}
+        <div class="dash-stat">
+            <div class="dash-stat-icon">🎯</div>
+            <div class="dash-stat-val">{{ last_test.percent }}%</div>
+            <div class="dash-stat-key">Последний тест</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Повторить сегодня -->
+    {% if due_cards %}
+    <div class="dash-section due-section">
+        <div class="section-header">
+            <h2>⏰ Повторить сегодня</h2>
+            <span class="badge-count">{{ due_cards.count }}</span>
+        </div>
+        <p class="section-hint">Эти карточки пора повторить по алгоритму интервального повторения</p>
+        <div class="due-cards-list">
+            {% for card in due_cards %}
+            <div class="due-card-row">
+                <div class="due-card-texts">
+                    <span class="due-front">{{ card.front_text }}</span>
+                    <span class="due-arrow">→</span>
+                    <span class="due-back">{{ card.back_text }}</span>
+                </div>
+                <a href="{% url 'study' card.course.pk %}" class="due-study-btn">Учить</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Быстрые действия -->
+    <div class="dash-actions">
+        <a href="{% url 'course_create' %}" class="dash-action-btn primary">
+            <span class="action-icon">➕</span>
+            <span class="action-label">Новый курс</span>
+        </a>
+        <a href="{% url 'folder_create' %}" class="dash-action-btn">
+            <span class="action-icon">📁</span>
+            <span class="action-label">Новая папка</span>
+        </a>
+        <a href="{% url 'ai_chat_list' %}" class="dash-action-btn">
+            <span class="action-icon">🤖</span>
+            <span class="action-label">AI Ассистент</span>
+        </a>
+        <a href="{% url 'shop' %}" class="dash-action-btn">
+            <span class="action-icon">🛍️</span>
+            <span class="action-label">Магазин</span>
+        </a>
+    </div>
+
+    <!-- Папки -->
+    {% if folders %}
+    <div class="dash-section">
+        <div class="section-header">
+            <h2>📁 Папки</h2>
+            <a href="{% url 'folder_create' %}" class="section-link">+ Добавить</a>
+        </div>
+        <div class="grid">
+            {% for folder in folders %}
+            <a href="{% url 'folder_detail' folder.pk %}" class="card-item folder-item">
+                <div class="card-icon">📁</div>
+                <div class="card-title">{{ folder.title }}</div>
+                <div class="card-meta">{{ folder.courses.count }} курс.</div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Недавние курсы -->
+    <div class="dash-section">
+        <div class="section-header">
+            <h2>📚 Курсы</h2>
+            <a href="{% url 'course_create' %}" class="section-link">+ Добавить</a>
+        </div>
+        {% if recent_courses %}
+        <div class="courses-grid">
+            {% for course in recent_courses %}
+            <div class="course-card">
+                <div class="course-card-top">
+                    <div class="course-langs">
+                        {{ course.front_language|upper }} → {{ course.back_language|upper }}
+                    </div>
+                    <div class="course-count">{{ course.cards_count }} карт.</div>
+                </div>
+                <div class="course-title">{{ course.title }}</div>
+                {% if course.description %}
+                <div class="course-desc">{{ course.description|truncatechars:60 }}</div>
+                {% endif %}
+                <div class="course-actions">
+                    <a href="{% url 'study' course.pk %}" class="course-btn study-btn">▶ Учить</a>
+                    <a href="{% url 'test' course.pk %}" class="course-btn test-btn">📝 Тест</a>
+                    <a href="{% url 'course_edit' course.pk %}" class="course-btn edit-btn">✏️</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if courses.count > 4 %}
+        <div style="text-align:center; margin-top:1rem">
+            <button onclick="toggleAllCourses()" class="btn-secondary" id="showAllBtn">
+                Показать все курсы ({{ courses.count }})
+            </button>
+        </div>
+        <div id="allCourses" style="display:none; margin-top:1rem">
+            <div class="courses-grid">
+                {% for course in courses %}
+                {% if forloop.counter > 4 %}
+                <div class="course-card">
+                    <div class="course-card-top">
+                        <div class="course-langs">{{ course.front_language|upper }} → {{ course.back_language|upper }}</div>
+                        <div class="course-count">{{ course.cards_count }} карт.</div>
+                    </div>
+                    <div class="course-title">{{ course.title }}</div>
+                    <div class="course-actions">
+                        <a href="{% url 'study' course.pk %}" class="course-btn study-btn">▶ Учить</a>
+                        <a href="{% url 'test' course.pk %}" class="course-btn test-btn">📝 Тест</a>
+                        <a href="{% url 'course_edit' course.pk %}" class="course-btn edit-btn">✏️</a>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <p style="font-size:2.5rem">🃏</p>
+            <p>Курсов пока нет</p>
+            <a href="{% url 'course_create' %}" class="btn-primary" style="margin-top:1rem;display:inline-block">
+                Создать первый курс
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+function toggleAllCourses() {
+    const el = document.getElementById('allCourses');
+    const btn = document.getElementById('showAllBtn');
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        btn.textContent = 'Скрыть';
+    } else {
+        el.style.display = 'none';
+        btn.textContent = 'Показать все курсы ({{ courses.count }})';
+    }
+}
+</script>
+{% endblock %}

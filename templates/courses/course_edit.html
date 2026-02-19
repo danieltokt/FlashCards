@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Редактирование — {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="edit-page">
+    <div class="edit-header">
+        <h1>✏️ {{ course.title }}</h1>
+        <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">Просмотр</a>
+    </div>
+
+    <!-- Настройки курса -->
+    <div class="course-settings-panel">
+        <form method="post">
+            {% csrf_token %}
+            <div class="settings-row">
+                <div class="settings-field">
+                    <label>Название курса</label>
+                    {{ course_form.title }}
+                </div>
+                <div class="settings-field">
+                    <label>Папка</label>
+                    {{ course_form.folder }}
+                </div>
+                <div class="settings-field">
+                    <label>Язык (лицевая)</label>
+                    {{ course_form.front_language }}
+                </div>
+                <div class="settings-field">
+                    <label>Язык (задняя)</label>
+                    {{ course_form.back_language }}
+                </div>
+            </div>
+            <button type="submit" name="save_course" class="btn-secondary">💾 Сохранить настройки</button>
+        </form>
+    </div>
+
+    <!-- Карточки -->
+    <div class="cards-editor">
+        <h2>Карточки ({{ cards.count }})</h2>
+
+        <!-- Форма добавления -->
+        <form method="post" enctype="multipart/form-data" class="add-card-form">
+            {% csrf_token %}
+            <div class="card-inputs">
+                <div class="input-group">
+                    <label>{{ course.front_language|upper }} — слово</label>
+                    {{ card_form.front_text }}
+                    <div class="translation-hint" id="translation-hint"></div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="input-group">
+                    <label>{{ course.back_language|upper }} — перевод</label>
+                    {{ card_form.back_text }}
+                </div>
+                <div class="input-group">
+                    <label>Фото (необязательно)</label>
+                    {{ card_form.image }}
+                </div>
+            </div>
+            <button type="submit" name="add_card" class="btn-primary">+ Добавить карточку</button>
+        </form>
+
+        <!-- Список карточек -->
+        <div class="cards-list">
+            {% for card in cards %}
+            <div class="card-row">
+                <span class="card-num">{{ forloop.counter }}</span>
+                <div class="card-texts">
+                    <span class="front">{{ card.front_text }}</span>
+                    <span class="arrow-small">→</span>
+                    <span class="back">{{ card.back_text }}</span>
+                </div>
+                {% if card.image %}
+                <img src="{{ card.image.url }}" alt="" class="card-thumb">
+                {% endif %}
+                <button class="fav-btn {% if card.is_favorite %}active{% endif %}"
+                    onclick="toggleFav({{ card.pk }}, this)">★</button>
+                <a href="{% url 'card_delete' card.pk %}" onclick="return confirm('Удалить карточку?')"
+                    class="btn-danger-sm">✕</a>
+            </div>
+            {% empty %}
+            <p class="empty-cards">Карточек пока нет. Добавь первую!</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    const frontInput = document.querySelector('.card-front-input');
+    const backInput = document.querySelector('.card-back-input');
+    const hint = document.getElementById('translation-hint');
+    let timer;
+
+    // Перевод при вводе в ПЕРВОЕ поле
+    frontInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fetchTranslation(
+            frontInput.value.trim(),
+            '{{ course.front_language }}',
+            '{{ course.back_language }}',
+            backInput
+        ), 600);
+    });
+
+    // Перевод при фокусе на ВТОРОЕ поле (если первое заполнено)
+    backInput.addEventListener('focus', () => {
+        const word = frontInput.value.trim();
+        if (word.length >= 2 && !backInput.value) {
+            fetchTranslation(word, '{{ course.front_language }}', '{{ course.back_language }}', backInput);
+        }
+    });
+
+    function fetchTranslation(word, sourceLang, targetLang, targetInput) {
+        if (word.length < 2) { hint.innerHTML = ''; return; }
+
+        fetch(`/api/translate/?word=${encodeURIComponent(word)}&source=${sourceLang}&target=${targetLang}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.translations && data.translations.length > 0) {
+                    hint.innerHTML = data.translations.map(t =>
+                        `<span class="hint-chip" onclick="
+                        document.querySelector('.card-back-input').value='${t.replace(/'/g, "\\'")}';
+                        document.getElementById('translation-hint').innerHTML='';
+                    ">${t}</span>`
+                    ).join('');
+                }
+            })
+            .catch(() => { });
+    }
+</script>
+{% endblock %}

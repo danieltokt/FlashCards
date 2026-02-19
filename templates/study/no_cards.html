@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Нет карточек{% endblock %}
+
+{% block content %}
+<div class="empty-state">
+    <p style="font-size:3rem">📭</p>
+    <h2>В курсе нет карточек</h2>
+    <p>Сначала добавь карточки, потом можно учить</p>
+    <a href="{% url 'course_edit' course.pk %}" class="btn-primary" style="margin-top:1rem;display:inline-block">
+        Добавить карточки
+    </a>
+</div>
+{% endblock %}

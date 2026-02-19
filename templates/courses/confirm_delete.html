@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Удалить{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <h1>Удалить {{ type }}?</h1>
+    <p>«{{ object }}» будет удалён безвозвратно.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions">
+            <a href="javascript:history.back()" class="btn-secondary">Отмена</a>
+            <button type="submit" class="btn-danger">Удалить</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
