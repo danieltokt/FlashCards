@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ user.interface_language|default:'ru' }}">
 
 <head>
     <meta charset="UTF-8">
@@ -21,11 +21,11 @@
             <span class="nav-freeze">🧊 {{ game_profile.freezes }}</span>
             {% endif %}
             {% endif %}
-            <a href="{% url 'home' %}">Курсы</a>
+            <a href="{% url 'home' %}" data-i18n="nav_courses">Курсы</a>
             <a href="{% url 'ai_chat_list' %}">🤖 AI</a>
-            <a href="{% url 'shop' %}">🛍️ Магазин</a>
+            <a href="{% url 'shop' %}" data-i18n="nav_shop">🛍️ Магазин</a>
             <a href="{% url 'profile' %}">{{ user.username }}</a>
-            <a href="{% url 'logout' %}">Выйти</a>
+            <a href="{% url 'logout' %}" data-i18n="nav_logout">Выйти</a>
         </div>
     </nav>
     {% endif %}
@@ -36,6 +36,207 @@
         {% endfor %}
         {% block content %}{% endblock %}
     </div>
+
+    <script>
+        const SITE_LANG = '{{ user.interface_language|default:"ru" }}';
+
+        const I18N = {
+            en: {
+                // Навбар
+                nav_courses: 'Courses', nav_shop: '🛍️ Shop', nav_logout: 'Log out',
+                // Главная
+                'Привет,': 'Hello,', 'дней': 'days',
+                'Coins': 'Coins', 'Freezes': 'Freezes',
+                'Курсов': 'Courses', 'Карточек': 'Cards', 'Тестов': 'Tests',
+                'Новый курс': 'New course', 'Новая папка': 'New folder',
+                'AI Ассистент': 'AI Assistant',
+                'Папки': 'Folders', 'Курсы': 'Courses',
+                '+ Добавить': '+ Add',
+                'курс.': 'course.', 'курса.': 'courses.', 'курсов.': 'courses.',
+                'Последний тест': 'Last test',
+                day_1: 'day', day_2: 'days', days_5: 'days',
+                streak_msg: 'You\'ve been learning for',
+                in_row: 'days in a row. Keep it up!',
+                // Магазин
+                'Магазин': 'Shop',
+                'Заморозки': 'Freezes',
+                'Заморозка сохраняет огонёк если ты пропустил день': 'A freeze saves your streak if you miss a day',
+                'Заморозка × 1': 'Freeze × 1', 'Заморозка × 2': 'Freeze × 2',
+                'монет': 'coins', 'Купить': 'Buy',
+                'Как зарабатывать монеты': 'How to earn coins',
+                'Первый курс дня': 'First course today',
+                'Дней подряд': 'Day streak', 'Рекорд': 'Best streak',
+                'Монет': 'Coins', 'Заморозок': 'Freezes',
+                // AI
+                'AI Ассистент': 'AI Assistant',
+                'Новый чат': 'New chat',
+                'сообщений': 'messages', 'сообщение': 'message',
+                'текст': 'text',
+                'Примеры с словом': 'Examples of words',
+                'Артикли': 'Articles',
+                // Профиль
+                'Средний балл': 'Avg. score',
+                'Последние тесты': 'Recent tests', 'Тестов пока нет': 'No tests yet',
+                'Настройки': 'Settings', 'Имя пользователя': 'Username',
+                'Сохранить имя': 'Save name', 'Язык интерфейса': 'Interface language',
+                'Сохранить язык': 'Save language', 'История монет': 'Coin history',
+                'На сайте с': 'Member since',
+                'Активность': 'Activity',
+                // Курсы
+                'карточек': 'cards', 'карточки': 'cards', 'карточка': 'card',
+                'Учить': 'Study', 'Тест': 'Test', 'Редактировать': 'Edit',
+                'Удалить': 'Delete', 'Поделиться': 'Share',
+                'Ссылка активна': 'Link active', 'Копировать': 'Copy',
+                // Учёба
+                'Перемешать': 'Shuffle', 'Избранные': 'Favorites',
+                'Нажми чтобы перевернуть': 'Tap to flip',
+                'Не знаю': "Don't know", 'Знаю': 'Know it',
+                'Готово!': 'Done!', 'Знал': 'Knew', 'Не знал': "Didn't know",
+                'Заново': 'Restart', 'Ошибки': 'Mistakes', 'Выйти': 'Exit',
+                'Пройти тест': 'Take test',
+                // Тест
+                'Тест завершён!': 'Test complete!', 'Правильно': 'Correct',
+                'Ещё раз': 'Try again',
+                'Выбери правильный перевод': 'Choose the correct translation',
+                'Напиши перевод': 'Write the translation',
+                'Верно или нет?': 'True or false?',
+                'Сопоставь пары': 'Match the pairs',
+                'Проверить': 'Check', 'Верно': 'True', 'Неверно': 'False',
+                // Общее
+                'Сохранить': 'Save', 'Отмена': 'Cancel', 'Добавить': 'Add', 'Назад': 'Back',
+                'Нет курсов': 'No courses yet',
+                'В курсе нет карточек': 'No cards in this course',
+                'Добавить карточки': 'Add cards',
+            },
+            de: {
+                nav_courses: 'Kurse', nav_shop: '🛍️ Shop', nav_logout: 'Abmelden',
+                'Привет,': 'Hallo,', 'Магазин': 'Shop', 'Заморозки': 'Einfrierungen',
+                'Заморозка × 1': 'Einfrierung × 1', 'Заморозка × 2': 'Einfrierung × 2',
+                'Купить': 'Kaufen', 'Монет': 'Münzen', 'Заморозок': 'Einfrierungen',
+                'Дней подряд': 'Tage hintereinander', 'Рекорд': 'Rekord',
+                'Курсы': 'Kurse', 'Учить': 'Lernen', 'Тест': 'Test',
+                'AI Ассистент': 'KI-Assistent', 'Новый чат': 'Neuer Chat',
+                'Редактировать': 'Bearbeiten', 'Удалить': 'Löschen',
+                'Знаю': 'Ich weiß', 'Не знаю': 'Ich weiß nicht',
+                'Готово!': 'Fertig!', 'Заново': 'Nochmal', 'Выйти': 'Beenden',
+                'Настройки': 'Einstellungen', 'Сохранить': 'Speichern',
+                'Новый курс': 'Neuer Kurs', 'Новая папка': 'Neuer Ordner',
+                'Папки': 'Ordner', 'Карточек': 'Karten',
+            },
+            fr: {
+                nav_courses: 'Cours', nav_shop: '🛍️ Boutique', nav_logout: 'Déconnexion',
+                'Привет,': 'Bonjour,', 'Магазин': 'Boutique', 'Заморозки': 'Gels',
+                'Заморозка × 1': 'Gel × 1', 'Заморозка × 2': 'Gel × 2',
+                'Купить': 'Acheter', 'Монет': 'Pièces', 'Заморозок': 'Gels',
+                'Дней подряд': 'Jours consécutifs', 'Рекорд': 'Record',
+                'Курсы': 'Cours', 'Учить': 'Étudier', 'Тест': 'Test',
+                'AI Ассистент': 'Assistant IA', 'Новый чат': 'Nouveau chat',
+                'Редактировать': 'Modifier', 'Удалить': 'Supprimer',
+                'Знаю': 'Je sais', 'Не знаю': 'Je ne sais pas',
+                'Готово!': 'Terminé!', 'Заново': 'Recommencer', 'Выйти': 'Quitter',
+                'Настройки': 'Paramètres', 'Сохранить': 'Enregistrer',
+                'Новый курс': 'Nouveau cours', 'Новая папка': 'Nouveau dossier',
+                'Папки': 'Dossiers',
+            },
+            es: {
+                nav_courses: 'Cursos', nav_shop: '🛍️ Tienda', nav_logout: 'Salir',
+                'Привет,': '¡Hola,', 'Магазин': 'Tienda', 'Заморозки': 'Congelaciones',
+                'Заморозка × 1': 'Congelación × 1', 'Заморозка × 2': 'Congelación × 2',
+                'Купить': 'Comprar', 'Монет': 'Monedas', 'Заморозок': 'Congelaciones',
+                'Дней подряд': 'Días seguidos', 'Рекорд': 'Récord',
+                'Курсы': 'Cursos', 'Учить': 'Estudiar', 'Тест': 'Test',
+                'AI Ассистент': 'Asistente IA', 'Новый чат': 'Nuevo chat',
+                'Редактировать': 'Editar', 'Удалить': 'Eliminar',
+                'Знаю': 'Lo sé', 'Не знаю': 'No lo sé',
+                'Готово!': '¡Listo!', 'Заново': 'De nuevo', 'Выйти': 'Salir',
+                'Настройки': 'Configuración', 'Сохранить': 'Guardar',
+                'Новый курс': 'Nuevo curso', 'Новая папка': 'Nueva carpeta',
+                'Папки': 'Carpetas',
+            },
+            kk: {
+                nav_courses: 'Курстар', nav_shop: '🛍️ Дүкен', nav_logout: 'Шығу',
+                'Привет,': 'Сәлем,', 'Магазин': 'Дүкен', 'Заморозки': 'Тоңазытқыштар',
+                'Заморозка × 1': 'Тоңазытқыш × 1', 'Заморозка × 2': 'Тоңазытқыш × 2',
+                'Купить': 'Сатып алу', 'Монет': 'Монета', 'Заморозок': 'Тоңазытқыш',
+                'Дней подряд': 'Күн қатарынан', 'Рекорд': 'Рекорд',
+                'Курсы': 'Курстар', 'Учить': 'Үйрену', 'Тест': 'Тест',
+                'AI Ассистент': 'AI Көмекші', 'Новый чат': 'Жаңа чат',
+                'Редактировать': 'Өңдеу', 'Удалить': 'Жою',
+                'Знаю': 'Білемін', 'Не знаю': 'Білмеймін',
+                'Готово!': 'Дайын!', 'Заново': 'Қайтадан', 'Выйти': 'Шығу',
+                'Настройки': 'Баптаулар', 'Сохранить': 'Сақтау',
+                'Новый курс': 'Жаңа курс', 'Новая папка': 'Жаңа қалта',
+                'Папки': 'Қалталар',
+            },
+            ky: {
+                nav_courses: 'Курстар', nav_shop: '🛍️ Дүкөн', nav_logout: 'Чыгуу',
+                'Привет,': 'Салам,', 'Магазин': 'Дүкөн', 'Заморозки': 'Тоңдуруулар',
+                'Заморозка × 1': 'Тоңдуруу × 1', 'Заморозка × 2': 'Тоңдуруу × 2',
+                'Купить': 'Сатып алуу', 'Монет': 'Монета', 'Заморозок': 'Тоңдуруу',
+                'Дней подряд': 'Катарынан күн', 'Рекорд': 'Рекорд',
+                'Курсы': 'Курстар', 'Учить': 'Үйрөнүү', 'Тест': 'Тест',
+                'AI Ассистент': 'AI Жардамчы', 'Новый чат': 'Жаңы чат',
+                'Редактировать': 'Түзөтүү', 'Удалить': 'Жок кылуу',
+                'Знаю': 'Билем', 'Не знаю': 'Билбейм',
+                'Готово!': 'Даяр!', 'Заново': 'Кайра', 'Выйти': 'Чыгуу',
+                'Настройки': 'Жөндөөлөр', 'Сохранить': 'Сактоо',
+                'Новый курс': 'Жаңы курс', 'Новая папка': 'Жаңы папка',
+                'Папки': 'Папкалар',
+            }
+        };
+
+        function applyTranslations() {
+            if (SITE_LANG === 'ru') return;
+            const dict = I18N[SITE_LANG];
+            if (!dict) return;
+
+            // 1. data-i18n атрибуты
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const val = dict[el.getAttribute('data-i18n')];
+                if (val) el.textContent = val;
+            });
+
+            // 2. Обход текстовых узлов
+            function walkNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const trimmed = node.textContent.trim();
+                    if (trimmed.length < 2) return;
+                    // Точное совпадение
+                    if (dict[trimmed]) {
+                        node.textContent = node.textContent.replace(trimmed, dict[trimmed]);
+                        return;
+                    }
+                    // Частичное — ищем ключи внутри текста (для "1 курс.", "дней" и т.д.)
+                    let text = node.textContent;
+                    let changed = false;
+                    for (const [ru, translated] of Object.entries(dict)) {
+                        if (ru.startsWith('nav_')) continue;
+                        if (text.includes(ru)) {
+                            text = text.replace(new RegExp(ru.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), translated);
+                            changed = true;
+                        }
+                    }
+                    if (changed) node.textContent = text;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const tag = node.tagName;
+                    if (['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+                    if (node.hasAttribute('data-no-translate')) return;
+                    node.childNodes.forEach(walkNode);
+                }
+            }
+
+            walkNode(document.body);
+
+            // 3. Placeholders
+            document.querySelectorAll('[placeholder]').forEach(el => {
+                const val = dict[el.getAttribute('placeholder')];
+                if (val) el.setAttribute('placeholder', val);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', applyTranslations);
+    </script>
+
 </body>
 
 </html>

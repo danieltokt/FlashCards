@@ -4,7 +4,6 @@
 {% block content %}
 <div class="study-wrapper">
 
-    <!-- Шапка -->
     <div class="study-header">
         <a href="{% url 'course_detail' course.pk %}" class="btn-secondary">✕</a>
         <div class="study-progress-bar">
@@ -13,7 +12,6 @@
         <span class="study-counter" id="counter">1 / {{ total }}</span>
     </div>
 
-    <!-- Опции -->
     <div class="study-options">
         <a href="?shuffle=true{% if favorites_only %}&favorites=true{% endif %}"
            class="option-chip {% if shuffle %}active{% endif %}">🔀 Перемешать</a>
@@ -21,7 +19,6 @@
            class="option-chip {% if favorites_only %}active{% endif %}">⭐ Избранные</a>
     </div>
 
-    <!-- Карточка -->
     <div class="card-scene" id="cardScene">
         <div class="card-flipper" id="cardFlipper" onclick="flipCard()">
             <div class="card-face card-front">
@@ -37,18 +34,17 @@
             </div>
         </div>
 
-        <!-- Свайп-индикаторы -->
         <div class="swipe-indicator know" id="indKnow">✓ Знаю</div>
         <div class="swipe-indicator dontknow" id="indDontKnow">✗ Не знаю</div>
     </div>
 
-    <!-- Кнопки -->
     <div class="study-actions">
         <button class="action-btn wrong" onclick="swipeCard('left')" title="Не знаю">
             <span>✕</span>
             <small>Не знаю</small>
         </button>
         <button class="sound-btn" onclick="speakCurrent()" title="Озвучить">🔊</button>
+        <button class="sound-btn" id="favBtn" onclick="toggleFavorite(event)" title="В избранное">☆</button>
         <button class="action-btn correct" onclick="swipeCard('right')" title="Знаю">
             <span>✓</span>
             <small>Знаю</small>
@@ -57,7 +53,6 @@
 
 </div>
 
-<!-- Экран результатов -->
 <div class="results-screen" id="resultsScreen" style="display:none">
     <div class="results-card">
         <div class="results-emoji" id="resultsEmoji"></div>
@@ -96,12 +91,9 @@ let isFlipped = false;
 let correctIds = [];
 let wrongIds = [];
 let activeCards = [...CARDS];
-
-// Touch/swipe поддержка
 let touchStartX = 0;
 let touchStartY = 0;
 
-// ===== Инициализация =====
 function init() {
     showCard(0);
 }
@@ -121,15 +113,13 @@ function showCard(index) {
     document.getElementById('backWord').textContent = card.back;
 
     const imgWrap = document.getElementById('cardImageWrap');
-    if (card.image) {
-        imgWrap.innerHTML = `<img src="${card.image}" class="card-img">`;
-    } else {
-        imgWrap.innerHTML = '';
-    }
+    imgWrap.innerHTML = card.image ? `<img src="${card.image}" class="card-img">` : '';
 
     updateProgress(index, activeCards.length);
     document.getElementById('indKnow').style.opacity = '0';
     document.getElementById('indDontKnow').style.opacity = '0';
+
+    updateFavBtn();
 }
 
 function updateProgress(index, total) {
@@ -138,13 +128,43 @@ function updateProgress(index, total) {
     document.getElementById('counter').textContent = (index + 1) + ' / ' + total;
 }
 
-// ===== Перевернуть =====
+function updateFavBtn() {
+    if (currentIndex >= activeCards.length) return;
+    const card = activeCards[currentIndex];
+    const btn = document.getElementById('favBtn');
+    if (btn) {
+        btn.textContent = card.is_favorite ? '⭐' : '☆';
+        btn.style.color = card.is_favorite ? '#f59e0b' : '';
+    }
+}
+
+function toggleFavorite(e) {
+    e.stopPropagation();
+    if (currentIndex >= activeCards.length) return;
+    const card = activeCards[currentIndex];
+
+    fetch(`/card/${card.id}/favorite/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            // Обновляем в обоих массивах
+            card.is_favorite = data.is_favorite;
+            const originalCard = CARDS.find(c => c.id === card.id);
+            if (originalCard) originalCard.is_favorite = data.is_favorite;
+            updateFavBtn();
+        }
+    })
+    .catch(err => console.error('Ошибка избранного:', err));
+}
+
 function flipCard() {
     isFlipped = !isFlipped;
     document.getElementById('cardFlipper').classList.toggle('flipped', isFlipped);
 }
 
-// ===== Свайп =====
 function swipeCard(direction) {
     if (!isFlipped) {
         flipCard();
@@ -174,9 +194,7 @@ function doSwipe(direction) {
     }, 400);
 }
 
-// ===== Touch events =====
 const scene = document.getElementById('cardScene');
-
 scene.addEventListener('touchstart', e => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
@@ -192,14 +210,13 @@ scene.addEventListener('touchend', e => {
     }
 }, { passive: true });
 
-// ===== Клавиатура =====
 document.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') swipeCard('right');
     if (e.key === 'ArrowLeft') swipeCard('left');
     if (e.key === ' ') { e.preventDefault(); flipCard(); }
+    if (e.key === 'f' || e.key === 'F') toggleFavorite(e);
 });
 
-// ===== Озвучка =====
 function speakCurrent() {
     const card = activeCards[currentIndex];
     const text = isFlipped ? card.back : card.front;
@@ -209,7 +226,6 @@ function speakCurrent() {
     speechSynthesis.speak(utter);
 }
 
-// ===== Результаты =====
 function showResults() {
     const total = activeCards.length;
     const correct = correctIds.length;
@@ -226,29 +242,21 @@ function showResults() {
     else if (pct >= 50) emoji = '💪';
     document.getElementById('resultsEmoji').textContent = emoji;
 
-    if (wrong === 0) {
-        document.getElementById('btnWrong').style.display = 'none';
-    }
+    if (wrong === 0) document.getElementById('btnWrong').style.display = 'none';
 
     document.querySelector('.study-wrapper').style.display = 'none';
     document.getElementById('resultsScreen').style.display = 'flex';
 
-    // Сохранить результат
     fetch(`/study/${COURSE_PK}/results/`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
         body: JSON.stringify({ correct, total, wrong_ids: wrongIds })
     });
 }
 
 function restartAll() {
     activeCards = [...CARDS];
-    currentIndex = 0;
-    correctIds = [];
-    wrongIds = [];
+    currentIndex = 0; correctIds = []; wrongIds = [];
     document.querySelector('.study-wrapper').style.display = 'flex';
     document.getElementById('resultsScreen').style.display = 'none';
     showCard(0);
@@ -256,22 +264,17 @@ function restartAll() {
 
 function restartWrong() {
     activeCards = CARDS.filter(c => wrongIds.includes(c.id));
-    currentIndex = 0;
-    correctIds = [];
-    wrongIds = [];
+    currentIndex = 0; correctIds = []; wrongIds = [];
     document.querySelector('.study-wrapper').style.display = 'flex';
     document.getElementById('resultsScreen').style.display = 'none';
     showCard(0);
 }
 
-function goToTest() {
-    window.location.href = `/test/${COURSE_PK}/`;
-}
+function goToTest() { window.location.href = `/test/${COURSE_PK}/`; }
 
 function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return v.pop().split(';').shift();
 }
 
 init();

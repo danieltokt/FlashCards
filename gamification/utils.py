@@ -2,6 +2,7 @@ from django.utils import timezone
 from django.db import transaction
 
 DAILY_COIN_LIMIT = 50
+MAX_FREEZES = 2
 
 
 def get_coins_earned_today(user):
@@ -16,7 +17,6 @@ def get_coins_earned_today(user):
 
 
 def add_coins(user, amount, reason):
-    """Начисляет монеты с учётом дневного лимита"""
     from .models import CoinTransaction, GameProfile
     profile, _ = GameProfile.objects.get_or_create(user=user)
 
@@ -28,17 +28,16 @@ def add_coins(user, amount, reason):
 
     actual = min(amount, remaining)
     profile.coins += actual
-    profile.save()
+    profile.save(update_fields=['coins'])
 
     CoinTransaction.objects.create(user=user, amount=actual, reason=reason)
     return actual
 
 
 def record_activity(user):
-    """Вызывается после прохождения теста или курса"""
     from .models import GameProfile
     today = timezone.now().date()
-    profile, created = GameProfile.objects.get_or_create(user=user)
+    profile, _ = GameProfile.objects.get_or_create(user=user)
 
     if profile.last_activity == today:
         return
@@ -46,24 +45,42 @@ def record_activity(user):
     yesterday = today - timezone.timedelta(days=1)
 
     with transaction.atomic():
-        if profile.last_activity == yesterday:
-            profile.streak += 1
-        elif profile.last_activity is None:
+        profile.refresh_from_db()
+
+        if profile.last_activity is None:
+            # Первый раз
             profile.streak = 1
+
+        elif profile.last_activity == yesterday:
+            # Пришёл вовремя — стрик растёт
+            profile.streak += 1
+
         else:
-            if profile.freezes > 0:
-                profile.freezes -= 1
+            # Пропустил один или больше дней
+            days_missed = (today - profile.last_activity).days - 1
+            # days_missed = 0 означает пропустил вчера (today - last = 2 дня)
+            # Считаем сколько заморозок нужно потратить
+            freezes_needed = (today - profile.last_activity).days - 1
+
+            if profile.freezes >= freezes_needed and freezes_needed > 0:
+                # Есть заморозки на все пропущенные дни
+                profile.freezes -= freezes_needed
                 profile.streak += 1
+            elif profile.freezes > 0 and freezes_needed > profile.freezes:
+                # Заморозок не хватает — сброс
+                profile.freezes = 0
+                profile.streak = 1
             else:
+                # Нет заморозок вообще — сброс
                 profile.streak = 1
 
-        # Бонусы за стрики
+        # Бонусы за стрики (только когда достигаем ровно этого числа)
         if profile.streak == 7:
             add_coins(user, 15, 'streak_7')
         elif profile.streak == 30:
             add_coins(user, 50, 'streak_30')
 
-        # +3 монеты за первый курс/тест дня
+        # +3 монеты за первую активность дня
         add_coins(user, 3, 'daily')
 
         if profile.streak > profile.longest_streak:

@@ -5,8 +5,7 @@
 <div class="page-header">
     <div>
         <h1>{{ course.title }}</h1>
-        <p class="subtitle">{{ course.front_language|upper }} → {{ course.back_language|upper }} · {{ cards.count }}
-            карточек</p>
+        <p class="subtitle">{{ course.front_language|upper }} → {{ course.back_language|upper }} · {{ cards.count }} карточек</p>
     </div>
     <div class="header-actions">
         <button onclick="toggleShare({{ course.pk }}, this)" class="btn-secondary share-btn"
@@ -21,8 +20,8 @@
     <div class="share-link-box" id="shareLinkBox">
         <span>🔗 Ссылка для друзей:</span>
         <input type="text"
-            value="{{ request.scheme }}://{{ request.get_host }}/courses/shared/{{ course.share_token }}/" readonly
-            id="shareUrl" class="share-url-input">
+            value="{{ request.scheme }}://{{ request.get_host }}/courses/shared/{{ course.share_token }}/"
+            readonly id="shareUrl" class="share-url-input">
         <button onclick="copyLink()" class="btn-secondary">Копировать</button>
     </div>
     {% else %}
@@ -44,7 +43,6 @@
     </div>
     {% endfor %}
 </div>
-{% endblock %}
 
 <script>
 function toggleShare(pk, btn) {
@@ -65,7 +63,8 @@ function toggleShare(pk, btn) {
         } else {
             box.style.display = 'none';
         }
-    });
+    })
+    .catch(e => alert('Ошибка: ' + e));
 }
 
 function copyLink() {
@@ -80,3 +79,4 @@ function getCookie(name) {
     if (v.length === 2) return v.pop().split(';').shift();
 }
 </script>
+{% endblock %}

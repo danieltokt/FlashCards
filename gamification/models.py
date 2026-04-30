@@ -5,8 +5,8 @@ from users.models import User
 class GameProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='gameprofile')
     coins = models.IntegerField(default=0)
-    streak = models.IntegerField(default=0)          # дней подряд
-    freezes = models.IntegerField(default=0)         # запас заморозок
+    streak = models.IntegerField(default=0)
+    freezes = models.IntegerField(default=0)
     last_activity = models.DateField(null=True, blank=True)
     longest_streak = models.IntegerField(default=0)
 
@@ -23,6 +23,6 @@ class CoinTransaction(models.Model):
         ('purchase', 'Покупка'),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coin_transactions')
-    amount = models.IntegerField()      # + или -
+    amount = models.IntegerField()
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)

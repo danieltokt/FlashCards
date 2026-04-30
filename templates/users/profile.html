@@ -4,61 +4,71 @@
 {% block content %}
 <div class="profile-page">
 
-    <!-- Шапка профиля -->
     <div class="profile-hero">
-        <div class="profile-avatar">
-            {% if user.avatar %}
-            <img src="{{ user.avatar.url }}" alt="">
-            {% else %}
-            <div class="avatar-placeholder">{{ user.username|first|upper }}</div>
-            {% endif %}
+        <div class="profile-avatar-wrap" style="position:relative;width:100px;height:100px;flex-shrink:0">
+            <div class="profile-avatar"
+                 onclick="document.getElementById('avatarInput').click()"
+                 title="Сменить аватар"
+                 style="cursor:pointer;width:100px;height:100px;border-radius:50%;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;color:#2563eb;">
+                {% if fresh_user.avatar %}
+                <img src="{{ fresh_user.avatar.url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
+                {% else %}
+                <span id="avatarPlaceholder">{{ user.username|first|upper }}</span>
+                {% endif %}
+            </div>
+            <div onclick="document.getElementById('avatarInput').click()"
+                 style="position:absolute;bottom:2px;right:2px;background:#2563eb;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid white;cursor:pointer">
+                📷
+            </div>
+            <form method="post" enctype="multipart/form-data" id="avatarForm" style="display:none">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="avatar">
+                {{ avatar_form.avatar }}
+            </form>
         </div>
-        <div class="profile-info">
-            <h1>{{ user.username }}</h1>
+        <div class="profile-info" style="margin-left:1.25rem">
+            <h1>{{ fresh_user.username }}</h1>
             <p class="profile-email">{{ user.email }}</p>
-            <p class="profile-joined">На сайте с {{ user.date_joined|date:"d.m.Y" }}</p>
+            <p class="profile-joined"><span data-i18n="member_since">На сайте с</span> {{ user.date_joined|date:"d.m.Y" }}</p>
         </div>
     </div>
 
-    <!-- Статистика -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-card-icon">🔥</div>
             <div class="stat-card-num">{{ profile.streak }}</div>
-            <div class="stat-card-label">Дней подряд</div>
+            <div class="stat-card-label" data-i18n="stat_streak">Дней подряд</div>
         </div>
         <div class="stat-card">
             <div class="stat-card-icon">🏆</div>
             <div class="stat-card-num">{{ profile.longest_streak }}</div>
-            <div class="stat-card-label">Рекорд</div>
+            <div class="stat-card-label" data-i18n="stat_best">Рекорд</div>
         </div>
         <div class="stat-card">
             <div class="stat-card-icon">🪙</div>
             <div class="stat-card-num">{{ profile.coins }}</div>
-            <div class="stat-card-label">Монет</div>
+            <div class="stat-card-label" data-i18n="stat_coins">Монет</div>
         </div>
         <div class="stat-card">
             <div class="stat-card-icon">🧊</div>
             <div class="stat-card-num">{{ profile.freezes }}</div>
-            <div class="stat-card-label">Заморозок</div>
+            <div class="stat-card-label" data-i18n="stat_freezes">Заморозок</div>
         </div>
         <div class="stat-card">
             <div class="stat-card-icon">📚</div>
             <div class="stat-card-num">{{ courses_count }}</div>
-            <div class="stat-card-label">Курсов</div>
+            <div class="stat-card-label" data-i18n="stat_courses">Курсов</div>
         </div>
         <div class="stat-card">
             <div class="stat-card-icon">📊</div>
             <div class="stat-card-num">{{ avg_percent }}%</div>
-            <div class="stat-card-label">Средний балл</div>
+            <div class="stat-card-label" data-i18n="avg_score">Средний балл</div>
         </div>
     </div>
 
     <div class="profile-columns">
-
-        <!-- Последние тесты -->
         <div class="profile-section">
-            <h2>📝 Последние тесты</h2>
+            <h2>📝 <span data-i18n="recent_tests">Последние тесты</span></h2>
             {% if test_results %}
             <div class="test-history">
                 {% for result in test_results %}
@@ -67,62 +77,58 @@
                         <span class="test-history-course">{{ result.course.title }}</span>
                         <span class="test-history-date">{{ result.created_at|date:"d.m H:i" }}</span>
                     </div>
-                    <div class="test-history-score
-                        {% if result.percent >= 90 %}score-great
-                        {% elif result.percent >= 70 %}score-good
-                        {% elif result.percent >= 50 %}score-ok
-                        {% else %}score-bad{% endif %}">
+                    <div class="test-history-score {% if result.percent >= 90 %}score-great{% elif result.percent >= 70 %}score-good{% elif result.percent >= 50 %}score-ok{% else %}score-bad{% endif %}">
                         {{ result.percent }}%
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-hint">Тестов пока нет</p>
+            <p class="empty-hint" data-i18n="no_tests">Тестов пока нет</p>
             {% endif %}
         </div>
 
-        <!-- Настройки -->
         <div class="profile-section">
-            <h2>⚙️ Настройки</h2>
+            <h2>⚙️ <span data-i18n="settings">Настройки</span></h2>
+
+            <form method="post" style="margin-bottom:1.5rem">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="profile">
+                <label style="display:block;margin-bottom:0.4rem;font-weight:500" data-i18n="username_label">Имя пользователя</label>
+                {{ profile_form.username }}
+                <button type="submit" class="btn-primary" style="margin-top:0.75rem" data-i18n="save_name">Сохранить имя</button>
+            </form>
+
             <form method="post">
                 {% csrf_token %}
-                <label>Язык интерфейса</label>
+                <input type="hidden" name="action" value="language">
+                <label style="display:block;margin-bottom:0.4rem;font-weight:500" data-i18n="lang_label">Язык интерфейса</label>
                 <select name="interface_language" class="form-input">
-                    <option value="ru" {% if fresh_user.interface_language == 'ru' %}selected{% endif %}>🇷🇺 Русский
-                    </option>
-                    <option value="en" {% if fresh_user.interface_language == 'en' %}selected{% endif %}>🇬🇧 English
-                    </option>
-                    <option value="de" {% if fresh_user.interface_language == 'de' %}selected{% endif %}>🇩🇪 Deutsch
-                    </option>
-                    <option value="fr" {% if fresh_user.interface_language == 'fr' %}selected{% endif %}>🇫🇷 Français
-                    </option>
-                    <option value="es" {% if fresh_user.interface_language == 'es' %}selected{% endif %}>🇪🇸 Español
-                    </option>
-                    <option value="kk" {% if fresh_user.interface_language == 'kk' %}selected{% endif %}>🇰🇿 Қазақша
-                    </option>
-                    <option value="ky" {% if fresh_user.interface_language == 'ky' %}selected{% endif %}>🏔️ Кыргызча
-                    </option>
+                    <option value="ru" {% if fresh_user.interface_language == 'ru' %}selected{% endif %}>🇷🇺 Русский</option>
+                    <option value="en" {% if fresh_user.interface_language == 'en' %}selected{% endif %}>🇬🇧 English</option>
+                    <option value="de" {% if fresh_user.interface_language == 'de' %}selected{% endif %}>🇩🇪 Deutsch</option>
+                    <option value="fr" {% if fresh_user.interface_language == 'fr' %}selected{% endif %}>🇫🇷 Français</option>
+                    <option value="es" {% if fresh_user.interface_language == 'es' %}selected{% endif %}>🇪🇸 Español</option>
+                    <option value="kk" {% if fresh_user.interface_language == 'kk' %}selected{% endif %}>🇰🇿 Қазақша</option>
+                    <option value="ky" {% if fresh_user.interface_language == 'ky' %}selected{% endif %}>🏔️ Кыргызча</option>
                 </select>
-                <button type="submit" class="btn-primary" style="margin-top:1rem">Сохранить</button>
+                <button type="submit" class="btn-primary" style="margin-top:0.75rem" data-i18n="save_lang">Сохранить язык</button>
             </form>
         </div>
-
     </div>
 
-    <!-- История монет -->
     {% if transactions %}
     <div class="profile-section" style="margin-top:1.5rem">
-        <h2>🪙 История монет</h2>
+        <h2>🪙 <span data-i18n="coin_history">История монет</span></h2>
         <div class="coin-history">
             {% for t in transactions %}
             <div class="coin-row">
                 <span class="coin-reason">
-                    {% if t.reason == 'test' %}📝 Тест
-                    {% elif t.reason == 'streak_7' %}🔥 Стрик 7 дней
-                    {% elif t.reason == 'streak_30' %}🔥 Стрик 30 дней
-                    {% elif t.reason == 'daily' %}🃏 Активность
-                    {% elif t.reason == 'purchase' %}🛍️ Покупка
+                    {% if t.reason == 'test' %}<span data-i18n="reason_test">📝 Тест</span>
+                    {% elif t.reason == 'streak_7' %}<span data-i18n="reason_streak7">🔥 Стрик 7 дней</span>
+                    {% elif t.reason == 'streak_30' %}<span data-i18n="reason_streak30">🔥 Стрик 30 дней</span>
+                    {% elif t.reason == 'daily' %}<span data-i18n="reason_daily">🃏 Активность</span>
+                    {% elif t.reason == 'purchase' %}<span data-i18n="reason_purchase">🛍️ Покупка</span>
                     {% endif %}
                 </span>
                 <span class="coin-date">{{ t.created_at|date:"d.m H:i" }}</span>
@@ -136,4 +142,18 @@
     {% endif %}
 
 </div>
+
+<script>
+document.getElementById('avatarInput').addEventListener('change', function () {
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const wrap = document.querySelector('.profile-avatar');
+            wrap.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;display:block">`;
+        };
+        reader.readAsDataURL(this.files[0]);
+        document.getElementById('avatarForm').submit();
+    }
+});
+</script>
 {% endblock %}

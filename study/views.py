@@ -7,6 +7,7 @@ from courses.models import Course, Card
 from .models import TestResult
 from .test_generator import generate_test
 
+
 @login_required
 def study_view(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk, user=request.user)
@@ -15,14 +16,13 @@ def study_view(request, course_pk):
     if not cards:
         return render(request, 'study/no_cards.html', {'course': course})
 
-    # Перемешать если нужно
     shuffle = request.GET.get('shuffle', 'false') == 'true'
     favorites_only = request.GET.get('favorites', 'false') == 'true'
 
     if favorites_only:
-        cards = [c for c in cards if c.is_favorite]
-        if not cards:
-            cards = list(course.cards.all())
+        fav_cards = [c for c in cards if c.is_favorite]
+        if fav_cards:
+            cards = fav_cards
 
     if shuffle:
         random.shuffle(cards)
@@ -48,6 +48,16 @@ def study_view(request, course_pk):
 
 
 @login_required
+def toggle_favorite(request, card_pk):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error'}, status=405)
+    card = get_object_or_404(Card, pk=card_pk, course__user=request.user)
+    card.is_favorite = not card.is_favorite
+    card.save(update_fields=['is_favorite'])
+    return JsonResponse({'status': 'ok', 'is_favorite': card.is_favorite})
+
+
+@login_required
 def study_results(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk, user=request.user)
 
@@ -56,8 +66,6 @@ def study_results(request, course_pk):
         wrong_ids = data.get('wrong_ids', [])
         correct_count = data.get('correct', 0)
         total = data.get('total', 0)
-
-        wrong_cards = Card.objects.filter(pk__in=wrong_ids)
 
         return JsonResponse({
             'status': 'ok',
@@ -68,6 +76,7 @@ def study_results(request, course_pk):
 
     return JsonResponse({'status': 'error'})
 
+
 @login_required
 def test_view(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk, user=request.user)
@@ -77,9 +86,7 @@ def test_view(request, course_pk):
         return render(request, 'study/no_cards.html', {'course': course})
 
     questions = generate_test(cards)
-
-    import json as _json
-    questions_json = _json.dumps(questions, ensure_ascii=False)
+    questions_json = json.dumps(questions, ensure_ascii=False)
 
     return render(request, 'study/test.html', {
         'course': course,
@@ -98,7 +105,6 @@ def test_submit(request, course_pk):
         total = data.get('total', 0)
         percent = round((correct / total) * 100) if total > 0 else 0
 
-        # Сохраняем результат
         TestResult.objects.create(
             user=request.user,
             course=course,
@@ -107,7 +113,6 @@ def test_submit(request, course_pk):
             percent=percent,
         )
 
-        # Начисляем монеты
         coins = 0
         if percent >= 90:
             coins = 20
@@ -116,12 +121,10 @@ def test_submit(request, course_pk):
         elif percent >= 50:
             coins = 5
 
-        
         if coins > 0:
             from gamification.utils import add_coins
             coins = add_coins(request.user, coins, 'test')
 
-        # Засчитываем активность для огонька
         from gamification.utils import record_activity
         record_activity(request.user)
 

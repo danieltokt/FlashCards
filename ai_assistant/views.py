@@ -45,11 +45,11 @@ def chat_create(request):
 @login_required
 def chat_view(request, chat_pk):
     chat = get_object_or_404(Chat, pk=chat_pk, user=request.user)
-    messages = chat.messages.all()
+    chat_messages = chat.messages.all()  # переименовали переменную
     chats = Chat.objects.filter(user=request.user)
     return render(request, 'ai_assistant/chat.html', {
         'chat': chat,
-        'messages': messages,
+        'messages': chat_messages,  # передаём как messages для шаблона
         'chats': chats,
     })
 
@@ -86,7 +86,6 @@ def chat_send(request, chat_pk):
     if not user_message:
         return JsonResponse({'status': 'error', 'message': 'Пустое сообщение'})
 
-    # Сохраняем сообщение пользователя
     ChatMessage.objects.create(
         chat=chat,
         user=request.user,
@@ -94,20 +93,15 @@ def chat_send(request, chat_pk):
         content=user_message
     )
 
-    # История последних 20 сообщений
     history = list(chat.messages.order_by('-created_at')[:20])
     history.reverse()
 
-    # Язык пользователя
-    lang = LANGUAGE_NAMES.get(
-        getattr(request.user, 'interface_language', 'ru'), 'русском'
-    )
+    lang = LANGUAGE_NAMES.get(getattr(request.user, 'interface_language', 'ru'), 'русском')
     system = SYSTEM_PROMPT.replace('{lang}', lang)
 
     try:
         client = Groq(api_key=settings.GROQ_API_KEY)
 
-        # Формируем историю для Groq
         groq_messages = [{'role': 'system', 'content': system}]
         for msg in history:
             groq_messages.append({
@@ -124,7 +118,6 @@ def chat_send(request, chat_pk):
 
         reply = response.choices[0].message.content
 
-        # Сохраняем ответ
         ChatMessage.objects.create(
             chat=chat,
             user=request.user,
@@ -136,20 +129,19 @@ def chat_send(request, chat_pk):
         return JsonResponse({'status': 'ok', 'reply': reply})
 
     except Exception as e:
-        # Удаляем сообщение пользователя при ошибке
-        ChatMessage.objects.filter(
-            chat=chat,
-            role='user',
-            content=user_message
-        ).last().delete()
+        import traceback
+        print("=== GROQ ERROR ===")
+        print(traceback.format_exc())
+        print("==================")
+        
+        # Удаляем сообщение пользователя
+        last = ChatMessage.objects.filter(
+            chat=chat, role='user', content=user_message
+        ).last()
+        if last:
+            last.delete()
 
-        error = str(e)
-        if 'rate' in error.lower() or '429' in error:
-            error = 'RATE_LIMIT'
-        elif 'api_key' in error.lower() or 'invalid' in error.lower():
-            error = 'Неверный API ключ. Проверь GROQ_API_KEY в .env'
-
-        return JsonResponse({'status': 'error', 'message': error})
+        return JsonResponse({'status': 'error', 'message': str(e)[:300]})
 
 
 @login_required

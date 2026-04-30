@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import User, LANGUAGE_CHOICES
 
+
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-input'})
@@ -28,3 +29,25 @@ class LoginForm(AuthenticationForm):
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'placeholder': 'Пароль', 'class': 'form-input'})
     )
+
+
+class AvatarForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['avatar']
+        widgets = {
+            'avatar': forms.FileInput(attrs={
+                'class': 'avatar-file-input',
+                'accept': 'image/*',
+                'id': 'avatarInput',
+            })
+        }
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Имя пользователя'})
+        }
